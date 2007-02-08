@@ -6,17 +6,23 @@ in the module and very little code is required to create an instance.
 
 This was written expressly for Apache webserver 1.3 or higher running
 under Linux.  However, there is nothing as far as I am aware that would
-prevent execution on Apache under Windows.
+prevent execution on Apache 2.x or Apache under Windows.
 
 INSTALLATION
 
-To install this module, run the following commands:
+To install this module with the standard make, run the following commands:
 
     perl Makefile.PL
     make
     make test
     make install
 
+Or to install on a system without make, run the following commands:
+
+    perl Build.PL
+    ./Build
+    ./Build test
+    ./Build install
 
 SUPPORT AND DOCUMENTATION
 

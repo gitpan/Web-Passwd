@@ -1,3 +1,6 @@
+# $Date: 2007-02-07 15:54:57 -0600 (Wed, 07 Feb 2007) $
+# $Revision: 19 $
+
 package Web::Passwd;
 use base 'CGI::Application';
 
@@ -6,29 +9,30 @@ use warnings;
 use CGI::Carp qw/fatalsToBrowser warningsToBrowser/;
 use Config::Tiny;
 
-# form method to use, GET is easier, but POST is more secure
-$Web::Passwd::FORM_METHOD = 'POST';
-
-$Web::Passwd::Config = undef;
-
 # set up application framework, including mode parameter and dispatch table
 sub setup {
-      my $self = shift;
-      $self->start_mode('index');
-      $self->mode_param('mode');
-      $self->run_modes(
-              'index' => 'display_index',
-              'view' => 'display_htfile',
-              'adduser' => 'user_op',
-              'changepw' => 'user_op',
-              'deluser' => 'user_op',
-      );
+  my $self = shift;
+  $self->start_mode('index');
+  $self->mode_param('mode');
+  $self->run_modes(
+    'index' => 'display_index',
+    'view' => 'display_htfile',
+    'adduser' => 'user_op',
+    'changepw' => 'user_op',
+    'deluser' => 'user_op',
+  );
+  
+  # return just to be tidy
+  return;
 }
 
 # perform final actions after all other processing
 sub teardown {
-  # print any warnings to browser as HTML comments
+  # trigger the printing of any warnings to browser as HTML comments
   warningsToBrowser(1);
+  
+  # return just to be tidy
+  return;
 }
 
 # display index page with no actions to be performed
@@ -36,13 +40,12 @@ sub display_index {
   my $self = shift;
   
   # load configuration as a hash ref
-  my $config_obj = load_config( $self->param('config') );
-  $Web::Passwd::Config = $config_obj;
+  $self->param('act_config', load_config( $self->param('config') ) );
   
   # load template file with HTML::Template
   my $tmpl_obj;
-  if(-e $config_obj->{'_'}->{'tmpl_path'} . 'index.tmpl' ) {
-    $tmpl_obj = $self->load_tmpl( $config_obj->{'_'}->{'tmpl_path'} . 'index.tmpl' );
+  if(-e $self->param('act_config')->{'_'}->{'tmpl_path'} . 'index.tmpl' ) {
+    $tmpl_obj = $self->load_tmpl( $self->param('act_config')->{'_'}->{'tmpl_path'} . 'index.tmpl' );
   }
   else {
     $tmpl_obj = $self->load_tmpl( \$Web::Passwd::INDEX_TEMPLATE );
@@ -50,7 +53,7 @@ sub display_index {
   
   # get list of htpasswd config blocks
   my @htfiles;
-  for my $key (keys %{$config_obj}) {
+  for my $key (keys %{$self->param('act_config')}) {
     if($key ne '_') {
       push(@htfiles, {'TITLE' => $key});
     }
@@ -60,7 +63,7 @@ sub display_index {
   $tmpl_obj->param(
     'HTFILES' => \@htfiles,
     'IS_WARNINGS' => $#CGI::Carp::WARNINGS + 1,
-    'FORM_METHOD' => $Web::Passwd::FORM_METHOD,
+    'FORM_METHOD' => $self->param('act_config')->{'_'}->{'form_method'},
   );
   
   # return template-generated output
@@ -75,13 +78,12 @@ sub display_htfile {
   my $query_obj = $self->query();
   
   # load configuration as a hash ref
-  my $config_obj = load_config( $self->param('config') );
-  $Web::Passwd::Config = $config_obj;
+  $self->param('act_config', load_config( $self->param('config') ) );
   
   # load template file with HTML::Template
   my $tmpl_obj;
-  if(-e $config_obj->{'_'}->{'tmpl_path'} . 'view.tmpl' ) {
-    $tmpl_obj = $self->load_tmpl( $config_obj->{'_'}->{'tmpl_path'} . 'view.tmpl' );
+  if(-e $self->param('act_config')->{'_'}->{'tmpl_path'} . 'view.tmpl' ) {
+    $tmpl_obj = $self->load_tmpl( $self->param('act_config')->{'_'}->{'tmpl_path'} . 'view.tmpl' );
   }
   else {
     $tmpl_obj = $self->load_tmpl( \$Web::Passwd::VIEW_TEMPLATE );
@@ -89,7 +91,7 @@ sub display_htfile {
   
   # get user list and format for template processing
   my @users;
-  for my $user ( htfile_listusers( $config_obj->{ $query_obj->param('htfile') }->{'path'} ) ) {
+  for my $user ( htfile_listusers( $self->param('act_config')->{ $query_obj->param('htfile') }->{'path'} ) ) {
     push(@users, {'USERNAME' => $user});
   }
   
@@ -98,7 +100,7 @@ sub display_htfile {
     'HTFILENAME' => $query_obj->param('htfile'),
     'USER_LOOP' => \@users,
     'IS_WARNINGS' => $#CGI::Carp::WARNINGS + 1,
-    'FORM_METHOD' => $Web::Passwd::FORM_METHOD,
+    'FORM_METHOD' => $self->param('act_config')->{'_'}->{'form_method'},
   );
   
   # return template-generated output
@@ -111,8 +113,8 @@ sub display_status {
   
   # load template file with HTML::Template
   my $tmpl_obj;
-  if(-d $Web::Passwd::Config->{'_'}->{'tmpl_path'}.'status.tmpl' ) {
-    $tmpl_obj = $self->load_tmpl( $Web::Passwd::Config->{'_'}->{'tmpl_path'}.'status.tmpl' );
+  if(-d $self->param('act_config')->{'_'}->{'tmpl_path'}.'status.tmpl' ) {
+    $tmpl_obj = $self->load_tmpl( $self->param('act_config')->{'_'}->{'tmpl_path'}.'status.tmpl' );
   }
   else {
     $tmpl_obj = $self->load_tmpl( \$Web::Passwd::STATUS_TEMPLATE );
@@ -137,7 +139,7 @@ sub display_status {
     'ACTION_MESSAGE' => $act_msg,
     'HTFILENAME' => $htfile,
     'IS_WARNINGS' => $#CGI::Carp::WARNINGS + 1,
-    'FORM_METHOD' => $Web::Passwd::FORM_METHOD,
+    'FORM_METHOD' => $self->param('act_config')->{'_'}->{'form_method'},
   );
   
   # return template-generated output
@@ -162,26 +164,25 @@ sub user_op {
   }
   
   # load configuration as a hash ref
-  my $config_obj = load_config( $self->param('config') );
-  $Web::Passwd::Config = $config_obj;
+  $self->param('act_config', load_config( $self->param('config') ) );
   
   # add new or change existing user/pass
   my @users = $query_obj->param('user');
   if($user_mode eq 'adduser' || $user_mode eq 'changepw') {
     htfile_moduser(
-      $config_obj->{'_'}->{'htpasswd_command'},
-      $config_obj->{ $query_obj->param('htfile') }->{'path'},
+      $self->param('act_config')->{'_'}->{'htpasswd_command'},
+      $self->param('act_config')->{ $query_obj->param('htfile') }->{'path'},
       $users[0],
       $query_obj->param('pass'),
-      $config_obj->{ $query_obj->param('htfile') }->{'algorithm'}
+      $self->param('act_config')->{ $query_obj->param('htfile') }->{'algorithm'}
     );
   }
   # or delete existing user(s)
   elsif($user_mode eq 'deluser') {
     for my $user (@users) {
       htfile_deluser(
-        $config_obj->{'_'}->{'htpasswd_command'},
-        $config_obj->{ $query_obj->param('htfile') }->{'path'},
+        $self->param('act_config')->{'_'}->{'htpasswd_command'},
+        $self->param('act_config')->{ $query_obj->param('htfile') }->{'path'},
         $user
       );
     }
@@ -230,8 +231,13 @@ sub load_config {
   }
   
   # if template path doesnt end with a fore-slash, append one
-  if(substr $config_obj->{'_'}->{'tmpl_path'}, -1 ne '/') {
+  if(substr($config_obj->{'_'}->{'tmpl_path'}, -1) ne '/') {
     $config_obj->{'_'}->{'tmpl_path'} .= '/';
+  }
+  
+  # if form method not provided or not GET, default to POST
+  if(!exists $config_obj->{'_'}->{'form_method'} || uc($config_obj->{'_'}->{'form_method'}) ne 'GET') {
+    $config_obj->{'_'}->{'form_method'} = 'POST';
   }
   
   # ensure valid attributes for each configured section
@@ -302,7 +308,12 @@ sub htfile_moduser {
                 $pass;
   
   # execute, or die on unsuccessful return value
-  system($command) == 0 or die "htpasswd command failed: $?";
+  if(system($command) != 0) {
+    die "htpasswd command failed: $?";
+  }
+  
+  # return just to be tidy
+  return;
 }
 
 # delete a user in a given htfile
@@ -572,11 +583,10 @@ Web::Passwd - Web-based htpasswd Management
 
 =head1 VERSION
 
-Version 1.00
+Version 0.03
 
 =cut
-
-our $VERSION = '0.02';
+our $VERSION = "0.03";
 
 =head1 SYNOPSIS
 
@@ -589,7 +599,7 @@ Web::Passwd is a web-based utility for managing Apache C<htpasswd> files.  It us
 
 That's it.  Drop that script in a web-accessible cgi directory and give it execute permissions, and (assuming a default config file is found), you're good to go.  If you'd rather explicity define a configuration file to use, you can pass it through an extra parameter:
 
-    my $webapp = Web::Passwd->new( PARAMS => { config => '/home/my/custom/config.conf' } );
+    my $webapp = Web::Passwd->new( PARAMS => { config => '/home/evan/custom_webpasswd.conf' } );
 
 =head1 CONFIGURATION
 
@@ -599,13 +609,17 @@ If not explicitly provided, a configuration file will be searched for in the fol
   ../webpasswd.conf   (the parent directory)
   /etc/webpasswd.conf
 
-The configuration file can be used to specify a directory of templates in the L<HTML::Template|HTML::Template> format.  If no templates are found, default templates are used (see the C</templates> directory of the distribution).
+The configuration file can be used to specify a directory of templates in the L<HTML::Template|HTML::Template> format.  If no templates are found, default templates are used (see the C</example/templates> directory of the distribution).
 
   tmpl_path = /var/www/cgi-bin/webpasswd/
 
 The C<htpasswd> command can also be specified.  If no C<htpasswd> command is provided, the default is used.  Note that, on some systems, you must specify the I<absolute> path to the C<htpasswd> binary.
 
   htpasswd_command = htpasswd
+
+The configuration file can specify whether to use the C<GET> (data encoded into the URL) or C<POST> (data encoded into the message body) form request method.  Defaults to using the generally more secure C<POST>.
+
+  form_method = POST
 
 The configuration file should also contain a section for each htpasswd file it will be used to maintain, using the following format:
 
